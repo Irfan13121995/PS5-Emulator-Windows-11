@@ -1,8 +1,22 @@
 #include "ps5_lowspec.hpp"
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 
 namespace ps5::lowspec {
+
+namespace {
+
+std::string SanitizeSingleLineIniValue(std::string input) {
+    for (char& c : input) {
+        if (c == '\r' || c == '\n' || c == '\0') {
+            c = ' ';
+        }
+    }
+    return input;
+}
+
+} // namespace
 
 // ============================================================================
 // Phase 6: Hardware Auto-Profiler & Optimal Low-Spec Preset Generator
@@ -88,10 +102,13 @@ bool LowSpecAutoTuner::WriteConfigIni(
         return false;
     }
 
+    const std::string safe_cpu = SanitizeSingleLineIniValue(hw.cpu_name);
+    const std::string safe_gpu = SanitizeSingleLineIniValue(hw.gpu_name);
+
     out << "; ============================================================================\n";
     out << "; PS5 Low-Spec Translation Layer - Auto-Generated Hardware Profile\n";
-    out << "; Detected CPU : " << hw.cpu_name << " (" << hw.physical_cores << "C/" << hw.logical_threads << "T)\n";
-    out << "; Detected GPU : " << hw.gpu_name << "\n";
+    out << "; Detected CPU : " << safe_cpu << " (" << hw.physical_cores << "C/" << hw.logical_threads << "T)\n";
+    out << "; Detected GPU : " << safe_gpu << "\n";
     out << "; System RAM   : " << (hw.system_ram_bytes / (1024ULL * 1024 * 1024)) << " GB\n";
     out << "; ============================================================================\n\n";
 

@@ -6,14 +6,12 @@ namespace ps5::lowspec {
 // ============================================================================
 // Phase 2: Sparse 64KB Demand-Paged Unified Memory & Zstd Cold Page Eviction
 // ============================================================================
-// Prevents Out-Of-Memory crashes on 8 GB - 16 GB Windows PCs and 2 GB - 4 GB
-// VRAM GPUs (like the GTX 1650 4GB) when emulating the PS5's 16 GB unified
-// GDDR6 address space:
-// - Reserves 16 GB virtual address space with zero initial physical commit.
-// - Commits 64 KB pages strictly on demand.
-// - Enforces a strict VRAM residency ceiling (e.g., 3.0 GB on a 4 GB GPU).
-// - Pages untouched for `cold_page_age_frames` are compressed in-place in RAM
-//   (achieving ~2.8x compression ratio) and uncommitted from active working set.
+// Security-hardened implementation:
+// - Validates guest virtual addresses against `kGuestVirtualSpaceSize` (16 GB)
+//   and reserves 64 KB leading/trailing guard regions.
+// - Enforces `ram_commit_budget_bytes` and `vram_budget_bytes` ceilings.
+// - Protects `page_table_` and residency counters with `std::mutex` to prevent
+//   multi-threaded vector reallocation Use-After-Free (UAF) races.
 
 SparseUnifiedMemory::SparseUnifiedMemory(const LowSpecConfig& config)
     : config_(config)
@@ -28,17 +26,30 @@ bool SparseUnifiedMemory::TouchGuestPage(
     bool gpu_hot,
     uint64_t current_frame)
 {
+    // Enforce 64 KB leading/trailing guard pages inside the 16 GB guest arena
+    if (guest_virtual_addr < kPageSize ||
+        guest_virtual_addr >= (kGuestVirtualSpaceSize - kPageSize))
+    {
+        return false;
+    }
+
     const uint64_t aligned_addr = guest_virtual_addr & ~(static_cast<uint64_t>(kPageSize) - 1ULL);
+    std::lock_guard<std::mutex> lock(mutex_);
 
     for (auto& page : page_table_) {
         if (page.guest_addr == aligned_addr) {
             page.last_touched_frame = current_frame;
             if (page.is_compressed) {
+                if (committed_bytes_ + kPageSize > config_.ram_commit_budget_bytes) {
+                    return false;
+                }
                 // Decompress cold page back into active working set
                 page.is_compressed = false;
                 uint64_t saved = kPageSize - page.compressed_payload.size();
                 if (saved_bytes_ >= saved) {
                     saved_bytes_ -= saved;
+                } else {
+                    saved_bytes_ = 0;
                 }
                 if (compressed_count_ > 0) {
                     compressed_count_--;
@@ -54,7 +65,11 @@ bool SparseUnifiedMemory::TouchGuestPage(
         }
     }
 
-    // Demand-fault new 64 KB page
+    // Enforce hard host RAM commit ceiling before faulting a new 64 KB page
+    if (committed_bytes_ + kPageSize > config_.ram_commit_budget_bytes) {
+        return false;
+    }
+
     PageDescriptor desc{};
     desc.guest_addr = aligned_addr;
     desc.last_touched_frame = current_frame;
@@ -75,7 +90,9 @@ size_t SparseUnifiedMemory::EvictAndCompressColdPages(uint64_t current_frame) {
         return 0;
     }
 
+    std::lock_guard<std::mutex> lock(mutex_);
     size_t newly_compressed = 0;
+
     for (auto& page : page_table_) {
         if (!page.is_committed || page.is_compressed) {
             continue;
@@ -89,6 +106,8 @@ size_t SparseUnifiedMemory::EvictAndCompressColdPages(uint64_t current_frame) {
                 page.is_gpu_resident = false;
                 if (vram_bytes_ >= kPageSize) {
                     vram_bytes_ -= kPageSize;
+                } else {
+                    vram_bytes_ = 0;
                 }
             }
 
@@ -97,7 +116,7 @@ size_t SparseUnifiedMemory::EvictAndCompressColdPages(uint64_t current_frame) {
             page.compressed_payload.resize(kCompressedSize, 0x5A);
             page.is_compressed = true;
 
-            if (committed_bytes_ >= kPageSize) {
+            if (committed_bytes_ >= (kPageSize - kCompressedSize)) {
                 committed_bytes_ -= (kPageSize - kCompressedSize);
             }
             saved_bytes_ += (kPageSize - kCompressedSize);
@@ -109,6 +128,7 @@ size_t SparseUnifiedMemory::EvictAndCompressColdPages(uint64_t current_frame) {
 }
 
 MemoryStats SparseUnifiedMemory::GetStats() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     MemoryStats stats{};
     stats.virtual_reserved_bytes = kGuestVirtualSpaceSize;
     stats.physical_committed_bytes = committed_bytes_;

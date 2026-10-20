@@ -218,4 +218,5 @@ Executed on a mid/low-spec laptop configuration (**Intel Core i7-9750H 6C/12T @ 
 
 * [**Low-Spec Architecture Specification (`docs/LOW_SPEC_ARCHITECTURE.md`)**](./docs/LOW_SPEC_ARCHITECTURE.md)
 * [**Configuration & Hardware Tuning Guide (`docs/CONFIGURATION_GUIDE.md`)**](./docs/CONFIGURATION_GUIDE.md)
+* [**Security, Privacy & Integrity Audit Log (`docs/SECURITY_AUDIT.md`)**](./docs/SECURITY_AUDIT.md)
 * [**Auto-Generated Configuration (`config.ini`)**](./config.ini)

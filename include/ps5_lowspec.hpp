@@ -154,6 +154,7 @@ private:
     };
 
     LowSpecConfig config_;
+    mutable std::mutex mutex_;
     std::vector<PageDescriptor> page_table_;
     uint64_t committed_bytes_ = 0;
     uint64_t vram_bytes_ = 0;
