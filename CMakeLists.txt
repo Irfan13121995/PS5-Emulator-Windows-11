@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(PS5_LowSpec_Emulator VERSION 2.0.0 LANGUAGES CXX)
+project(PS5_LowSpec_Emulator VERSION 3.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,7 +17,7 @@ add_library(ps5_lowspec_core STATIC
     src/audio/stereo_downmix.cpp
     src/ui/low_spec_config.cpp
 
-    # Full PS5 HLE + NCE Emulator Subsystems
+    # Full PS5 HLE + NCE Emulator Subsystems (v2.0)
     src/core/nid_hash.cpp
     src/core/elf64_loader.cpp
     src/core/abi_trampoline.cpp
@@ -25,6 +25,15 @@ add_library(ps5_lowspec_core STATIC
     src/hle/libkernel.cpp
     src/hle/libsce_videoout_agc.cpp
     src/hle/libsce_pad_audio.cpp
+
+    # Commercial PS5 Game Runtime Subsystems (v3.0)
+    src/core/dynlib_linker.cpp
+    src/core/veh_syscall_trapper.cpp
+    src/core/game_mounter.cpp
+    src/hle/libkernel_equeue_sync.cpp
+    src/hle/libsce_system_user_savedata.cpp
+    src/gpu/rdna2_shader_compiler.cpp
+    src/gpu/agc_texture_deswizzler.cpp
 )
 
 target_include_directories(ps5_lowspec_core PUBLIC
