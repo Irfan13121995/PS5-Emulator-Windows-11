@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
-project(PS5_LowSpec_Emulator VERSION 1.0.1 LANGUAGES CXX)
+project(PS5_LowSpec_Emulator VERSION 2.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(ps5_lowspec_core STATIC
+    # Low-Spec Optimization Subsystems
     src/core/loader_self.cpp
     src/core/fiber_scheduler.cpp
     src/core/sparse_memory.cpp
@@ -15,6 +16,15 @@ add_library(ps5_lowspec_core STATIC
     src/io/async_kraken.cpp
     src/audio/stereo_downmix.cpp
     src/ui/low_spec_config.cpp
+
+    # Full PS5 HLE + NCE Emulator Subsystems
+    src/core/nid_hash.cpp
+    src/core/elf64_loader.cpp
+    src/core/abi_trampoline.cpp
+    src/core/homebrew_rom_builder.cpp
+    src/hle/libkernel.cpp
+    src/hle/libsce_videoout_agc.cpp
+    src/hle/libsce_pad_audio.cpp
 )
 
 target_include_directories(ps5_lowspec_core PUBLIC
