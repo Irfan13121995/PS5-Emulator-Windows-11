@@ -1,0 +1,20 @@
+# Build directories
+build/
+out/
+bin/
+obj/
+.vs/
+.vscode/
+
+# OS & Editor temporary files
+*.user
+*.suo
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.obj
+*.o
+*.a
+Thumbs.db
+.DS_Store
